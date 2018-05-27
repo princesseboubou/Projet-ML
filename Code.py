@@ -23,9 +23,11 @@ def show_usps(data) :
     plt.imshow(data.reshape((16,16)),interpolation="nearest",cmap="gray")
     
 # load data
-fileroot = "/Users/marieheurtevent/Desktop/Ponts/MachineLearning/Projet/USPS/USPS"
-x_test, y_test = load_usps(fileroot + '_test.txt')
-x_train, y_train = load_usps(fileroot + '_train.txt')
+# fileroot = /Users/marieheurtevent/Desktop/Ponts/MachineLearning/Projet/USPS/USPS"
+# x_test, y_test = load_usps(fileroot + '_test.txt')
+# x_train, y_train = load_usps(fileroot + '_train.txt')
+(x_train, y_train)=load_usps('USPS_train.txt')
+(x_test, y_test)=load_usps('USPS_test.txt')
     
 def visual_ex() :
     rand_tab1 = np.array([randint(0,1000)%x_train.shape[0] for i in range (2)])
@@ -121,15 +123,25 @@ def labeliseG(Adj, states):
 
     
 if True : # Test 2
-    Adj = createAdj(x_train12,x_test12,0.1)
+#     Adj = createAdj(x_train12,x_test12,0.1)
     #states = np.array([1,1,1,1,1,1,1,2,1,2,0,0,0,0,0,0,0,0,0,0])
     states = np.concatenate((y_train12,np.array([0]*len(y_test12))))
     #G = createG(Adj,states)
     #plt.figure()
     #affichage(G,1,2)
-    statesChapeau = labeliseG(Adj,states)
-    print(sum(statesChapeau[len(y_train12):] == y_test12)/len(y_test12)*100, "%")
-    #plt.figure()
+    score=[]
+    test_sigma_log=np.arange(-2.2,0.3,0.1)
+    test_sigma=10**(test_sigma_log)
+    for sigma in test_sigma :
+        Adj = createAdj(x_train12,x_test12,sigma)
+        statesChapeau = labeliseG(Adj,states)
+        #print(sum(statesChapeau[len(y_train12):] == y_test12)/len(y_test12)*100, "%")    
+        score.append(sum(statesChapeau[len(y_train12):] == y_test12)/len(y_test12)*100)
+    plt.figure()
+    plt.plot(test_sigma_log,score)
+    plt.xlabel("log10(sigma)")
+    plt.ylabel("Score")
+    plt.title("Score en fonction de sigma")
     #affichage(G,1,2)
     
 
