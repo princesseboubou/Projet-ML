@@ -105,7 +105,8 @@ def createAdj(x_train12, x_test12, sigma) :
     Adj = np.zeros((n,n))
     for i in range (n) :
         for j in range (n) :
-            Adj[i][j] = np.dot(x[i],x[j]) # somme du produit des intensites des pixels correspondants
+            #Adj[i][j] = np.dot(x[i],x[j]) # somme du produit des intensites des pixels correspondants
+            Adj[i][j] = sum((x[i] - x[j])**2)
     Adj = np.exp(-np.multiply(Adj,sigma))
     return Adj
     
