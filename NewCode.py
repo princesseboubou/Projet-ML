@@ -48,12 +48,22 @@ visual_ex()
 
 
 # on ne prend que les images de 2 classes différentes
-def usps_2classes(int1, int2) :
-    index_train = np.sort(np.concatenate(( np.where(y_train==int1)[0], np.where(y_train==int2)[0] )))
-    index_test = np.sort(np.concatenate(( np.where(y_test==int1)[0], np.where(y_test==int2)[0] )))
-    return x_train[index_train], y_train[index_train], x_test[index_test], y_test[index_test]
-    
-x_train12, y_train12, x_test12, y_test12 = usps_2classes(1,2)
+def usps_2classes(int1, int2, p) :
+    index_train = np.concatenate((np.where(y_train==int1)[0], np.where(y_train==int2)[0]))
+    index_test = np.concatenate((np.where(y_test==int1)[0], np.where(y_test==int2)[0]))   
+    nb_tot = len(index_train) + len(index_test)
+    nb_train = int(p*nb_tot)
+    if(nb_train < len(index_train)):
+        index_train = index_train[:nb_train].squeeze()
+        index_test_add = index_train[nb_train:].squeeze()
+        return x_train[index_train], y_train[index_train], np.concatenate((x_train[index_test_add], x_test)), np.concatenate((y_train[index_test_add], y_test))
+    else:
+        index_train_add = index_test[:nb_train-len(index_train)]
+        index_test = index_test[nb_train-len(index_train):]
+        return np.concatenate((x_train[index_train], x_test[index_train_add])), np.concatenate((y_train[index_train],y_test[index_train_add])), x_test[index_test], y_test[index_test]
+
+x_train12, y_train12, x_test12, y_test12 = usps_2classes(1,2, 0.1)
+state = np.concatenate((y_train12,np.array([0]*len(y_test12))))
 
 
 
@@ -99,26 +109,17 @@ def createG(Adj,states) :
     nx.set_node_attributes(G, dict(zip(G.node(),list(states))),'state')
     return G
     
-def createAdj(x_train12, x_test12, sigma) :
+def createAdj(x_train12, x_test12, sigma, yChapeau) :
     x = np.concatenate((x_train12,x_test12))
     n = x.shape[0]
     Adj = np.zeros((n,n))
     for i in range (n) :
         for j in range (n) :
-            #Adj[i][j] = np.dot(x[i],x[j]) # somme du produit des intensites des pixels correspondants
             Adj[i][j] = sum((x[i] - x[j])**2)
     Adj = np.exp(-np.multiply(Adj,sigma))
-    return Adj
     
-
-# Fonctions qui changent l'état des noeuds d'un graphe
-# def labeliseG(Adj, states):
-#     """Labelise les noeuds non labelisés"""
-#     new_states = states.copy() # Dictionnaire des nouveaux états
-        
-#     new_states[states==0] = np.argmin([np.sum((Adj[np.where(states==0)]).T[np.where(states==i)].T,axis=1) for i in range (1,3)],axis=0) +1 # sera à changer quand int1, int2 != 1, 2
-#     # G = createG(Adj, new_states) # On impose à G les nouveaux états
-#     return new_states
+    return Adj
+ 
 
 def split(M,l,u):
     #Creation des sous-matrices
@@ -127,6 +128,7 @@ def split(M,l,u):
     M_ul=M[l:l+u,:l]
     M_uu=M[l:l+u,l:l+u]
     return (M_ll, M_lu, M_ul, M_uu)
+
 
 def labeliseG(Adj,states,l,u):
     d=np.sum(Adj,axis=1)
@@ -142,25 +144,15 @@ def labeliseG(Adj,states,l,u):
     f_u=np.dot(f_u,f_l)
     return (np.concatenate((f_l,f_u)))
 
-if True : # Test 2
-    #Adj = createAdj(x_train12,x_test12,0.1)
+def plotErrorSigma(x_train12, x_test12, state) : 
+    Adj = createAdj(x_train12,x_test12,0.1)
     l=len(x_train12)
     u=len(x_test12)
-    print(l,u)
-    #states = np.array([1,1,1,1,1,1,1,2,1,2,0,0,0,0,0,0,0,0,0,0])
-    states = np.concatenate((y_train12,np.array([0]*len(y_test12))))
-    #G = createG(Adj,states)
-    #plt.figure()
-    #affichage(G,1,2)
     score=[]
     test_sigma_log=np.arange(-2.2,0.1,0.1)
     test_sigma=10**(test_sigma_log)
-#     statesChapeau = labeliseG(Adj,states,l,u)
-#     print (statesChapeau)
-#     statesChapeau = np.where(statesChapeau>1.5, 2, 1)
-#     print(sum(statesChapeau[len(y_train12):] == y_test12)/len(y_test12)*100, "%")
     for sigma in test_sigma :
-        Adj = createAdj(x_train12,x_test12,sigma)
+        Adj = createAdj(x_train12, x_test12, sigma)
         statesChapeau = labeliseG(Adj,states,l,u)
         statesChapeau = np.where(statesChapeau>1.5, 2, 1)
         print(sum(statesChapeau[len(y_train12):] == y_test12)/len(y_test12)*100, "%")    
@@ -170,7 +162,25 @@ if True : # Test 2
     plt.xlabel("log sigma")
     plt.ylabel("Score")
     plt.title("Score en fonction de sigma")
-    #affichage(G,1,2)
+    
+def plotErrorP(x_train12, x_test12, state) : 
+    Adj = createAdj(x_train12,x_test12,0.1)
+    l=len(x_train12)
+    u=len(x_test12)
+    score=[]
+    test_sigma_log=np.arange(-2.2,0.1,0.1)
+    test_sigma=10**(test_sigma_log)
+    for sigma in test_sigma :
+        Adj = createAdj(x_train12, x_test12, sigma)
+        statesChapeau = labeliseG(Adj,states,l,u)
+        statesChapeau = np.where(statesChapeau>1.5, 2, 1)
+        print(sum(statesChapeau[len(y_train12):] == y_test12)/len(y_test12)*100, "%")    
+        score.append(sum(statesChapeau[len(y_train12):] == y_test12)/len(y_test12)*100)
+    plt.figure()
+    plt.plot(test_sigma_log,score)
+    plt.xlabel("log sigma")
+    plt.ylabel("Score")
+    plt.title("Score en fonction de sigma")
 
     
 #if False : # Test 2
@@ -186,38 +196,7 @@ if True : # Test 2
     #affichage(G,1,2)
     
 
-
-if False: # Test 1
-    Gtest = nx.Graph()
-    Gtest.add_node(0, state=1)
-    Gtest.add_node(1, state=2)
-    Gtest.add_node(2, state=0)
-    Gtest.add_node(3, state=0)
-    Gtest.add_node(4, state=1)
-    Gtest.add_node(5, state=0)
-    Gtest.add_node(6, state=1)
-    Gtest.add_node(7, state=2)
-    Gtest.add_weighted_edges_from([(0,1,0.5), (0,2,0.5), (1,3,0.5), (2,7,0.5), (5,4,0.5), (1,6,0.5), (3,7,0.5), (2,5,0.5), (3,4,0.5)])
-    print(Gtest.nodes(data=True))
-    state = nx.get_node_attributes(Gtest, 'state')
-    affichage(Gtest,1,2)
     
-    
-
-
-
-
-
-##
-
-
-
-
-
-
-
-
-
-
+   
 
 
